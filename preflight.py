@@ -10,17 +10,17 @@ from agents import run_pipeline
 from profiles import PROFILES
 
 CASES = [
-    ("judge-pass", "job_seeker",
+    ("strong-pass", "job_seeker",
      {"name": "Gagan", "role": "MTS at Anthropic", "what_they_work_on": "I work on agents"},
      True),
-    ("irrelevant-hold", "roofing",
-     {"name": "Sam", "role": "homeowner",
-      "what_they_work_on": "just mows the lawn on weekends, roof is fine"},
+    ("generic-hold", "job_seeker",
+     {"name": "Alex", "role": "backend engineer at a regional bank",
+      "what_they_work_on": "payment batch jobs; thinks AI is neat but doesn't work on it or hire for it"},
      False),
-    ("niche-switch", "ceramic_coating",
-     {"name": "Priya", "role": "new owner",
-      "what_they_work_on": "just picked up a new Porsche 911 and posts about keeping the paint spotless"},
-     True),
+    ("irrelevant-hold", "job_seeker",
+     {"name": "Sam", "role": "bakery owner",
+      "what_they_work_on": "sourdough and weekend farmers markets"},
+     False),
 ]
 
 

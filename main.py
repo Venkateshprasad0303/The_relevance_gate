@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from agents import build_profile_agent, fetch_url_text, run_pipeline
+from agents import build_profile_agent, discover_agent, fetch_url_text, run_pipeline
 from profiles import PROFILES
 
 load_dotenv()
@@ -114,6 +114,29 @@ class RunRequest(BaseModel):
     what_they_work_on: str = ""
     link: str = ""
     search_web: bool = False
+
+
+class DiscoverRequest(BaseModel):
+    profile_id: str
+    query: str = ""
+
+
+@app.post("/api/discover")
+async def discover(req: DiscoverRequest):
+    """Found many → contact few: search the public web for potential targets
+    matching the sender's context, each with a source and an honest fit hint."""
+    profile = PROFILES.get(req.profile_id)
+    if profile is None or len(req.query.strip()) < 5:
+        return {"ok": False, "message": "Pick a context and describe who you're looking for."}
+    try:
+        candidates = await discover_agent(profile, req.query.strip())
+        if not candidates:
+            return {"ok": False, "message":
+                    "Nothing concrete found on the public web for that — try a more "
+                    "specific search (a place, an industry, a kind of signal)."}
+        return {"ok": True, "candidates": candidates}
+    except Exception:
+        return {"ok": False, "message": "Search couldn't complete — try again."}
 
 
 class ProfileRequest(BaseModel):

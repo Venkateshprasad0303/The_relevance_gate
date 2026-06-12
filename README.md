@@ -1,12 +1,19 @@
 # The Relevance Gate
 
-**An outreach agent crew that refuses to send unless it finds a real, evidence-backed
+**Job-hunt outreach that refuses to send unless it finds a real, evidence-backed
 reason to contact someone.** Found many. Contact few. All of them true.
 
 Generic cold outreach replies at ~3.4%; evidence-grounded, signal-based outreach
-replies at 15–25% — a ~5× lift. Recipients skim and delete in ~0.1 seconds. Every
-other outreach tool optimizes for volume and fakes personalization. We optimize for
-**send-worthiness** — our headline feature is the message we *won't* send.
+replies at 15–25% — a ~5× lift. Recruiters and hiring managers skim and delete in
+~0.1 seconds. Every other tool optimizes for volume and fakes personalization. We
+optimize for **send-worthiness** — the headline feature is the message we *won't*
+send, because the message you don't send protects the ones you do.
+
+**The loop:** paste your résumé (or a public URL) → it becomes your profile →
+search the web for people worth reaching (hiring posts, founders building in your
+specialty) → each candidate is researched, the genuine overlap with your proven
+work is computed, and an independent gate scores whether you have a real opening
+→ only then is a ≤75-word, evidence-grounded message written.
 
 ## How it works
 
@@ -21,9 +28,8 @@ THE GATE   → independent verifier: score 0–100, send or HOLD; fails closed
 WRITE      → only if cleared: ≤75 words, built solely on the verified overlap
 ```
 
-The agents are 100% domain-agnostic — all domain knowledge lives in a profile dict.
-Switch the context dropdown (job seeker → roofing → ceramic coating) and the same
-engine serves a different trade with zero code change.
+The agents are 100% profile-agnostic — all personal context lives in a profile dict.
+Paste any résumé and the identical engine runs on that career with zero code change.
 
 ## Run it
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>The Relevance Gate — found many, contact few, all true</title>
+<title>The Relevance Gate — job-hunt outreach that refuses to spam</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -115,6 +115,21 @@
   .websearch input { accent-color: var(--ink); cursor: pointer; }
   .websearch em { color: var(--ink-soft); font-size: 13px; }
 
+  .discover-row { display: flex; gap: 10px; align-items: flex-end; }
+  .discover-row input { flex: 1; }
+  button.run.mini { padding: 8px 14px; font-size: 10.5px; }
+  .candidates-head { font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--ink-soft); padding-bottom: 14px; }
+  .candidate { border-top: 1px solid var(--rule); padding: 18px 0; display: flex;
+    gap: 18px; align-items: baseline; }
+  .candidate .who { flex: 1; }
+  .candidate .who b { font-weight: 600; }
+  .candidate .who .role { font-style: italic; color: var(--ink-soft); }
+  .candidate .signal { font-size: 15px; margin-top: 5px; }
+  .candidate .hint { font-size: 13.5px; font-style: italic; color: var(--ink-soft); margin-top: 5px; }
+  .candidate .src { font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft); margin-top: 7px; }
+  .candidate button.run { white-space: nowrap; }
+
   .creed { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--rule);
     font-size: 13.5px; color: var(--ink-soft); line-height: 1.65; }
   .creed b { color: var(--ink); font-weight: 600; }
@@ -221,10 +236,11 @@
   </header>
 
   <section class="lede">
-    <h1>An outreach agent that <em>refuses to send</em> unless it finds a real reason.</h1>
-    <p>Four isolated agents research a person, compute the genuine overlap with what you offer,
-       and put it before an independent gate. If the reason isn't real and evidenced, nothing is written.
-       The headline feature is the message it won't send.</p>
+    <h1>Job-hunt outreach that <em>refuses to send</em> unless it finds a real reason.</h1>
+    <p>Four isolated agents research the person who could hire or refer you, compute the genuine
+       overlap with your proven work, and put it before an independent gate. If the reason isn't
+       real and evidenced, nothing is written — because recruiters delete generic outreach in
+       0.1 seconds, and the message you don't send protects the ones you do.</p>
   </section>
 
   <div class="desk">
@@ -232,20 +248,27 @@
     <!-- ------------------------------------------------ intake -->
     <aside class="intake">
       <details class="aboutyou">
-        <summary>About you <span class="hint">— build a custom profile</span></summary>
-        <label class="field-label" for="meMaterial">Who are you? <span class="hint">— paste a bio, résumé, company blurb, or a public URL</span></label>
-        <textarea id="meMaterial" placeholder="https://yoursite.com — or paste your background"></textarea>
-        <label class="field-label" for="meGoal">What do you want from outreach?</label>
-        <input type="text" id="meGoal" placeholder="land a PM role at a serious AI company" autocomplete="off">
+        <summary>About you <span class="hint">— paste your background, build your profile</span></summary>
+        <label class="field-label" for="meMaterial">Your background <span class="hint">— paste your résumé, bio, or a public profile URL</span></label>
+        <textarea id="meMaterial" placeholder="https://yoursite.com — or paste your résumé text"></textarea>
+        <label class="field-label" for="meGoal">What are you looking for?</label>
+        <input type="text" id="meGoal" placeholder="a PM role at a serious AI company" autocomplete="off">
         <div class="runbar">
           <button class="run" id="buildBtn">Build profile</button>
           <span class="buildmsg" id="buildMsg"></span>
         </div>
       </details>
 
-      <label class="field-label" for="profile">Context <span class="hint">— who is reaching out</span></label>
+      <label class="field-label" for="profile">Profile <span class="hint">— who is reaching out</span></label>
       <select id="profile"></select>
       <div class="acting-as" id="actingAs"></div>
+
+      <label class="field-label" for="dquery">Find targets <span class="hint">— optional, searches the public web</span></label>
+      <div class="discover-row">
+        <input type="text" id="dquery" placeholder="people hiring AI product managers at agent startups" autocomplete="off">
+        <button class="run mini" id="dBtn">Find</button>
+      </div>
+      <div class="buildmsg" id="dMsg"></div>
 
       <label class="field-label" for="tname">The person</label>
       <input type="text" id="tname" placeholder="Gagan" autocomplete="off">
@@ -269,8 +292,8 @@
 
       <div class="creed">
         The gate renders its verdict <b>before the writer exists</b> — the writer can't
-        talk it into sending. Every claim traces to a source. Swap the context above
-        and the same engine serves a different trade, with zero code change.
+        talk it into sending. Every claim traces to a source. Paste your own background
+        above and the identical engine runs on your career, with zero code change.
       </div>
     </aside>
 
@@ -278,9 +301,11 @@
     <main class="ledger" id="ledger">
       <div class="ledger-idle" id="idle">
         <div class="big-q">Is there a real reason to write to this person?</div>
-        <p>Type what they said about their work — that's the evidence the crew grounds on.
-           Then watch it decide.</p>
+        <p>Type what they said about their work — or search the web for people worth reaching —
+           and watch the gate decide whether your background gives you a genuine opening.</p>
       </div>
+
+      <div id="candidates" hidden></div>
 
       <div id="stages" hidden>
         <section class="stage" id="st-research">
@@ -350,6 +375,7 @@
   }
   function resetLedger() {
     $("#idle").hidden = true;
+    $("#candidates").hidden = true;
     $("#stages").hidden = false;
     for (const s of ["research","enrich","intersect","verify","write"]) {
       const el = stageEl(s);
@@ -522,6 +548,64 @@
     }
   }
 
+  function showCandidates(list) {
+    const box = $("#candidates");
+    $("#idle").hidden = true;
+    $("#stages").hidden = true;
+    box.hidden = false;
+    box.innerHTML = `<div class="candidates-head reveal">Found ${list.length} — the gate decides who's worth contacting</div>` +
+      list.map((c, i) => `
+        <div class="candidate reveal">
+          <div class="who">
+            <div><b>${esc(c.name)}</b> <span class="role">— ${esc(c.role)}</span></div>
+            <div class="signal">${esc(c.what_they_work_on)}</div>
+            <div class="hint">${esc(c.fit_hint)}</div>
+            <div class="src">${esc(c.source)}</div>
+          </div>
+          <button class="run mini" data-i="${i}">Run the gate</button>
+        </div>`).join("");
+    box.querySelectorAll("button[data-i]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const c = list[+btn.dataset.i];
+        $("#tname").value = c.name;
+        $("#trole").value = c.role;
+        $("#twork").value = c.what_they_work_on;
+        $("#tlink").value = /^https?:\/\//.test(c.source) ? c.source : "";
+        run();
+      });
+    });
+  }
+
+  async function discover() {
+    const btn = $("#dBtn"), msg = $("#dMsg");
+    const q = $("#dquery").value.trim();
+    if (!q) return;
+    btn.disabled = true;
+    msg.className = "buildmsg";
+    msg.textContent = "searching the public web — this takes a moment…";
+    try {
+      const res = await (await fetch("/api/discover", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile_id: $("#profile").value, query: q }),
+      })).json();
+      if (res.ok) {
+        msg.textContent = "";
+        showCandidates(res.candidates);
+      } else {
+        msg.className = "buildmsg bad";
+        msg.textContent = res.message;
+      }
+    } catch {
+      msg.className = "buildmsg bad";
+      msg.textContent = "Search couldn't complete — try again.";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  $("#dBtn").addEventListener("click", discover);
+  $("#dquery").addEventListener("keydown", e => { if (e.key === "Enter") discover(); });
   $("#buildBtn").addEventListener("click", buildProfile);
   $("#runBtn").addEventListener("click", run);
   document.addEventListener("keydown", e => {

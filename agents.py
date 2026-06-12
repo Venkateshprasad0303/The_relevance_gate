@@ -97,6 +97,29 @@ MESSAGE_SCHEMA = {
     "additionalProperties": False,
 }
 
+CANDIDATES_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "candidates": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "role": {"type": "string"},
+                    "what_they_work_on": {"type": "string"},
+                    "source": {"type": "string"},
+                    "fit_hint": {"type": "string"},
+                },
+                "required": ["name", "role", "what_they_work_on", "source", "fit_hint"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["candidates"],
+    "additionalProperties": False,
+}
+
 PROFILE_SCHEMA = {
     "type": "object",
     "properties": {
@@ -206,19 +229,71 @@ async def enrich_agent(target: dict) -> list[dict]:
         return []
 
 
-async def build_profile_agent(material: str, goal: str) -> dict:
-    """Distill pasted material or a fetched page into a sender profile —
-    the customization path: any person or business becomes a context."""
-    system = (
-        "Distill the provided material about a sender (a person or a business) "
-        "into an outreach profile. Use ONLY what the material supports — never "
-        "invent achievements or credentials. proof_points: their strongest "
-        "concrete, verifiable claims (metrics, named work, certifications). "
-        "relevance_criteria: a STRICT rule for when a target is genuinely "
-        "worth contacting given the sender's goal — generic shared interest "
-        "is never enough; the overlap must be concrete."
+async def discover_agent(profile: dict, query: str) -> list[dict]:
+    """Find MANY, so the gate can contact FEW. Two steps: a web-search pass
+    gathers raw public signals, then a schema-enforced pass structures them
+    (structured outputs can't ride on a citation-bearing search call).
+
+    Privacy rule (§10): public information only. Private individuals are not
+    searchable — for consumer niches this returns signal-based leads (e.g. a
+    neighborhood named in storm-damage news, property managers, businesses
+    that posted publicly), never private personal data."""
+    notes_response = await asyncio.wait_for(
+        client.messages.create(
+            model=MODEL_FAST,
+            max_tokens=900,
+            temperature=TEMPERATURE,
+            system=(
+                "You are a discovery agent finding potential outreach targets "
+                "on the public web for a job seeker. Given the seeker's "
+                "background and a search intent, find up to 5 CONCRETE "
+                "potential targets: people who posted publicly about hiring "
+                "or building relevant things, teams with open roles, founders "
+                "or leads who spoke or wrote about the seeker's specialty. "
+                "STRICT RULES: only "
+                "clearly public information; never private individuals' "
+                "personal data; every lead must cite where you saw it; if you "
+                "find nothing real, say so — never invent leads."
+            ),
+            messages=[{"role": "user", "content": json.dumps({
+                "search_intent": query,
+                "sender_offer": profile["candidate"],
+                "relevance_criteria": profile["relevance_criteria"],
+            })}],
+            tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+        ),
+        timeout=25.0,
     )
-    user = json.dumps({"material": material[:6000], "sender_goal": goal})
+    notes = "".join(b.text for b in notes_response.content if b.type == "text")
+    if not notes.strip():
+        return []
+    structured = await _call(
+        MODEL_FAST,
+        "Structure these discovery notes into candidates[]. Keep only leads "
+        "with a real source. what_they_work_on: the public signal in one or "
+        "two sentences. fit_hint: one honest line on why they might match "
+        "the sender's offer. Discard anything vague or invented.",
+        json.dumps({"notes": notes, "search_intent": query}),
+        CANDIDATES_SCHEMA, 10.0, 800,
+    )
+    return structured.get("candidates", [])[:5]
+
+
+async def build_profile_agent(material: str, goal: str) -> dict:
+    """Distill a pasted résumé/bio or a fetched page into a job seeker's
+    outreach profile — anyone's career becomes a context, zero code change."""
+    system = (
+        "Distill the provided material about a job seeker into an outreach "
+        "profile. Use ONLY what the material supports — never invent "
+        "achievements, titles, or credentials. proof_points: their strongest "
+        "concrete, verifiable career claims (shipped projects, metrics, "
+        "recognitions, named work). identity: one line on who they are "
+        "professionally. relevance_criteria: a STRICT rule for when a target "
+        "is genuinely worth contacting given the career goal — the target "
+        "must build, hire for, or influence work the proof points map onto "
+        "concretely; generic shared interest is never enough."
+    )
+    user = json.dumps({"material": material[:6000], "career_goal": goal})
     return await _call(MODEL_FAST, system, user, PROFILE_SCHEMA, 12.0, 700)
 
 
