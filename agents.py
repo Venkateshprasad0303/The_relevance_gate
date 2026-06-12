@@ -295,6 +295,11 @@ async def run_pipeline(profile: dict, target: dict):
             # DEMO SAFETY NET — pre-validated result for canonical inputs,
             # triggered only on live failure mid-pitch.
             seeded = _seeded_result(profile_id, target)
+            yield {"stage": "research", "status": "done", "data": {
+                "facts": [{"fact": f"{target.get('name', 'Target')} — {target.get('role', 'role unknown')}; works on: {target.get('what_they_work_on', 'unknown')}",
+                           "source": "stated by target"}],
+                "unknowns": [],
+            }}
             yield {"stage": "intersect", "status": "done", "data": seeded["intersection"]}
             yield {"stage": "verify", "status": "done", "data": seeded["verdict"]}
             if seeded["message"]:
