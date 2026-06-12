@@ -9,7 +9,9 @@ lives in the profile dict.
 import asyncio
 import json
 import os
+import re
 
+import httpx
 from anthropic import AsyncAnthropic
 from dotenv import load_dotenv
 
@@ -95,6 +97,35 @@ MESSAGE_SCHEMA = {
     "additionalProperties": False,
 }
 
+PROFILE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "candidate": {
+            "type": "object",
+            "properties": {
+                "name": {"type": "string"},
+                "identity": {"type": "string"},
+                "goal": {"type": "string"},
+                "ask": {"type": "string"},
+            },
+            "required": ["name", "identity", "goal", "ask"],
+            "additionalProperties": False,
+        },
+        "proof_points": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"point": {"type": "string"}, "evidence": {"type": "string"}},
+                "required": ["point", "evidence"],
+                "additionalProperties": False,
+            },
+        },
+        "relevance_criteria": {"type": "string"},
+    },
+    "required": ["candidate", "proof_points", "relevance_criteria"],
+    "additionalProperties": False,
+}
+
 
 async def _call(model: str, system: str, user: str, schema: dict, timeout: float,
                 max_tokens: int = 700) -> dict:
@@ -115,9 +146,85 @@ async def _call(model: str, system: str, user: str, schema: dict, timeout: float
     return json.loads(text)
 
 
+# ------------------------------------------------- additive enrichment (§2)
+# Typed context is the spine; everything here is a limb. Each helper returns
+# empty on ANY failure — auth walls, timeouts, junk pages — and never raises.
+
+async def fetch_url_text(url: str, timeout: float = 4.0) -> str:
+    """Best-effort public-page fetch. Login-walled sites (LinkedIn, X) refuse
+    anonymous fetches — that returns "" here, never an error."""
+    try:
+        async with httpx.AsyncClient(
+            timeout=timeout, follow_redirects=True,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; RelevanceGate/1.0)"},
+        ) as cx:
+            r = await cx.get(url)
+            if r.status_code != 200 or "html" not in r.headers.get("content-type", "html"):
+                return ""
+            text = re.sub(r"(?is)<(script|style|noscript).*?</\1>", " ", r.text)
+            text = re.sub(r"(?s)<[^>]+>", " ", text)
+            return re.sub(r"\s+", " ", text).strip()[:4000]
+    except Exception:
+        return ""
+
+
+async def enrich_agent(target: dict) -> list[dict]:
+    """Opt-in live web search for public facts about the target. Runs beside
+    research; merged into the dossier only if it returns in time."""
+    try:
+        response = await asyncio.wait_for(
+            client.messages.create(
+                model=MODEL_FAST,
+                max_tokens=500,
+                temperature=TEMPERATURE,
+                system=(
+                    "Search the web for public professional information about "
+                    "the target person or organization. Report ONLY facts you "
+                    "can see in the search results, one per line, formatted "
+                    "exactly as 'FACT: <fact> | SOURCE: <site or url>'. If you "
+                    "find nothing reliable, output nothing. Never guess."
+                ),
+                messages=[{"role": "user", "content": json.dumps(
+                    {k: target.get(k, "") for k in ("name", "role", "what_they_work_on")}
+                )}],
+                tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 2}],
+            ),
+            timeout=9.0,
+        )
+        # Citations split the answer across many text blocks — join with no
+        # separator and split on the FACT: token, not on lines.
+        text = "".join(b.text for b in response.content if b.type == "text")
+        facts = []
+        for chunk in text.split("FACT:")[1:]:
+            fact, _, rest = chunk.partition("| SOURCE:")
+            fact = " ".join(fact.split())
+            source = " ".join(rest.split()).splitlines()[0].strip() if rest.strip() else "web search"
+            if fact:
+                facts.append({"fact": fact, "source": source or "web search"})
+        return facts[:5]
+    except Exception:
+        return []
+
+
+async def build_profile_agent(material: str, goal: str) -> dict:
+    """Distill pasted material or a fetched page into a sender profile —
+    the customization path: any person or business becomes a context."""
+    system = (
+        "Distill the provided material about a sender (a person or a business) "
+        "into an outreach profile. Use ONLY what the material supports — never "
+        "invent achievements or credentials. proof_points: their strongest "
+        "concrete, verifiable claims (metrics, named work, certifications). "
+        "relevance_criteria: a STRICT rule for when a target is genuinely "
+        "worth contacting given the sender's goal — generic shared interest "
+        "is never enough; the overlap must be concrete."
+    )
+    user = json.dumps({"material": material[:6000], "sender_goal": goal})
+    return await _call(MODEL_FAST, system, user, PROFILE_SCHEMA, 12.0, 700)
+
+
 # ---------------------------------------------------------------- agents
 
-async def research_agent(profile: dict, target: dict) -> dict:
+async def research_agent(profile: dict, target: dict, page_text: str = "") -> dict:
     system = (
         "You are a research agent. Build a factual dossier about an outreach "
         "target. Your PRIMARY and authoritative source is what the target "
@@ -125,11 +232,12 @@ async def research_agent(profile: dict, target: dict) -> dict:
         "tie to a source. Never invent facts. List explicit unknowns."
     )
     user = json.dumps({
-        "target": target,
+        "target": {k: target.get(k, "") for k in ("name", "role", "what_they_work_on")},
+        "linked_page_text": page_text or None,
         "instruction": (
             "Produce facts[] where each fact cites its source "
-            "(e.g. 'stated by target'). Include role and what they work on. "
-            "List unknowns you could not establish."
+            "(e.g. 'stated by target', or the linked page). Include role and "
+            "what they work on. List unknowns you could not establish."
         ),
     })
     return await _call(MODEL_FAST, system, user, DOSSIER_SCHEMA,
@@ -278,9 +386,26 @@ async def run_pipeline(profile: dict, target: dict):
     """Async generator yielding SSE-ready stage events."""
     profile_id = profile["id"]
     try:
+        # Opt-in web search starts first so it overlaps the research stage.
+        enrich_task = (asyncio.ensure_future(enrich_agent(target))
+                       if target.get("search_web") else None)
+
         yield {"stage": "research", "status": "running"}
-        dossier = await research_agent(profile, target)
+        page_text = ""
+        if target.get("link"):
+            page_text = await fetch_url_text(target["link"])
+        dossier = await research_agent(profile, target, page_text)
         yield {"stage": "research", "status": "done", "data": dossier}
+
+        if enrich_task is not None:
+            yield {"stage": "enrich", "status": "running"}
+            try:
+                web_facts = await enrich_task
+            except Exception:
+                web_facts = []
+            if web_facts:
+                dossier["facts"] = dossier.get("facts", []) + web_facts
+            yield {"stage": "enrich", "status": "done", "data": {"facts": web_facts}}
 
         yield {"stage": "intersect", "status": "running"}
         intersection = await intersect_agent(profile, dossier, target)

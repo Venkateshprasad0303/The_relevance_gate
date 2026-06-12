@@ -17,7 +17,7 @@ from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
-from agents import run_pipeline
+from agents import build_profile_agent, fetch_url_text, run_pipeline
 from profiles import PROFILES
 
 load_dotenv()
@@ -112,6 +112,43 @@ class RunRequest(BaseModel):
     name: str = ""
     role: str = ""
     what_they_work_on: str = ""
+    link: str = ""
+    search_web: bool = False
+
+
+class ProfileRequest(BaseModel):
+    material: str = ""  # pasted bio/résumé/company blurb, or a public URL
+    goal: str = ""
+
+
+@app.post("/api/build-profile")
+async def build_profile(req: ProfileRequest):
+    """Customization path: distill any sender — person or business — into a
+    profile the domain-agnostic agents can run on."""
+    try:
+        material = req.material.strip()
+        if material.startswith(("http://", "https://")):
+            fetched = await fetch_url_text(material)
+            if not fetched:
+                return {"ok": False, "message":
+                        "Couldn't read that page — login-walled sites like LinkedIn "
+                        "block fetches. Paste the text of your profile instead."}
+            material = fetched
+        if len(material) < 40:
+            return {"ok": False, "message":
+                    "Give me a little more to work with — paste a bio, résumé, "
+                    "or company blurb (or a public URL)."}
+        built = await build_profile_agent(material, req.goal.strip())
+        if req.goal.strip():
+            built["candidate"]["goal"] = req.goal.strip()
+        built["id"] = "custom"
+        built["label"] = f"Custom — {built['candidate']['name']}"
+        PROFILES["custom"] = built
+        return {"ok": True, "id": "custom",
+                "name": built["candidate"]["name"],
+                "proof_points": len(built["proof_points"])}
+    except Exception:
+        return {"ok": False, "message": "Couldn't build the profile — try again."}
 
 
 def _sse(event: dict) -> str:
@@ -139,6 +176,8 @@ async def run(req: RunRequest):
         "name": req.name.strip() or "Unknown",
         "role": req.role.strip(),
         "what_they_work_on": req.what_they_work_on.strip(),
+        "link": req.link.strip(),
+        "search_web": req.search_web,
     }
 
     async def stream():

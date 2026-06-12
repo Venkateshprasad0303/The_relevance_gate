@@ -98,6 +98,23 @@
   button.run:disabled { opacity: .45; cursor: default; }
   .elapsed { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
 
+  .aboutyou { border: 1px solid var(--rule); padding: 14px 18px; margin-bottom: 30px;
+    background: rgba(255,253,247,.5); }
+  .aboutyou summary { cursor: pointer; font-family: var(--mono); font-size: 11px;
+    letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); user-select: none; }
+  .aboutyou summary .hint { text-transform: none; letter-spacing: 0; font-style: italic;
+    font-family: var(--serif); font-size: 13px; }
+  .aboutyou[open] summary { margin-bottom: 4px; }
+  .aboutyou .runbar { margin-top: 20px; margin-bottom: 8px; }
+  .aboutyou button.run { padding: 9px 18px; font-size: 11px; }
+  .buildmsg { font-size: 13px; font-style: italic; color: var(--ink-soft); flex: 1; }
+  .buildmsg.ok { color: var(--clear); }
+  .buildmsg.bad { color: var(--hold); }
+  .websearch { display: flex; gap: 9px; align-items: baseline; margin-top: 22px;
+    font-size: 14.5px; cursor: pointer; }
+  .websearch input { accent-color: var(--ink); cursor: pointer; }
+  .websearch em { color: var(--ink-soft); font-size: 13px; }
+
   .creed { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--rule);
     font-size: 13.5px; color: var(--ink-soft); line-height: 1.65; }
   .creed b { color: var(--ink); font-weight: 600; }
@@ -214,6 +231,18 @@
 
     <!-- ------------------------------------------------ intake -->
     <aside class="intake">
+      <details class="aboutyou">
+        <summary>About you <span class="hint">— build a custom profile</span></summary>
+        <label class="field-label" for="meMaterial">Who are you? <span class="hint">— paste a bio, résumé, company blurb, or a public URL</span></label>
+        <textarea id="meMaterial" placeholder="https://yoursite.com — or paste your background"></textarea>
+        <label class="field-label" for="meGoal">What do you want from outreach?</label>
+        <input type="text" id="meGoal" placeholder="land a PM role at a serious AI company" autocomplete="off">
+        <div class="runbar">
+          <button class="run" id="buildBtn">Build profile</button>
+          <span class="buildmsg" id="buildMsg"></span>
+        </div>
+      </details>
+
       <label class="field-label" for="profile">Context <span class="hint">— who is reaching out</span></label>
       <select id="profile"></select>
       <div class="acting-as" id="actingAs"></div>
@@ -226,6 +255,12 @@
 
       <label class="field-label" for="twork">What they work on <span class="hint">— in their words</span></label>
       <textarea id="twork" placeholder="“I work on agents.”"></textarea>
+
+      <label class="field-label" for="tlink">A page about them <span class="hint">— optional, public URLs only</span></label>
+      <input type="text" id="tlink" placeholder="https://…" autocomplete="off">
+
+      <label class="websearch"><input type="checkbox" id="twebsearch">
+        <span>Search the web for them <em>— adds a few seconds</em></span></label>
 
       <div class="runbar">
         <button class="run" id="runBtn">Run the gate</button>
@@ -250,6 +285,10 @@
       <div id="stages" hidden>
         <section class="stage" id="st-research">
           <div class="stage-head"><span class="stage-no">01</span><span class="stage-name">Research</span><span class="stage-status"></span></div>
+          <div class="stage-body"></div>
+        </section>
+        <section class="stage" id="st-enrich" hidden>
+          <div class="stage-head"><span class="stage-no">01·w</span><span class="stage-name">Web Trail</span><span class="stage-status"></span></div>
           <div class="stage-body"></div>
         </section>
         <section class="stage" id="st-intersect">
@@ -281,6 +320,7 @@
 
   const RUNNING_COPY = {
     research:  "reading what they said…",
+    enrich:    "searching the public web…",
     intersect: "looking for the genuine overlap…",
     verify:    "weighing the evidence…",
     write:     "writing only what's true…",
@@ -311,12 +351,13 @@
   function resetLedger() {
     $("#idle").hidden = true;
     $("#stages").hidden = false;
-    for (const s of ["research","intersect","verify","write"]) {
+    for (const s of ["research","enrich","intersect","verify","write"]) {
       const el = stageEl(s);
       el.classList.remove("on");
       $(".stage-status", el).innerHTML = "";
       $(".stage-body", el).innerHTML = "";
     }
+    stageEl("enrich").hidden = !$("#twebsearch").checked;
   }
 
   function renderResearch(d) {
@@ -400,6 +441,9 @@
       } else if (status === "done") {
         setStatus(stage, "");
         if (stage === "research")  setBody(stage, renderResearch(data));
+        if (stage === "enrich")    setBody(stage, (data.facts || []).length
+          ? renderResearch(data)
+          : "<div class='unknowns'>Nothing reliable found on the public web — proceeding on what they said.</div>");
         if (stage === "intersect") setBody(stage, renderIntersect(data));
         if (stage === "verify")    { lastVerdictLine = data.verdict_line; setBody(stage, renderVerdict(data)); }
         if (stage === "write")     setBody(stage, renderMessage(data));
@@ -421,6 +465,8 @@
           name: $("#tname").value,
           role: $("#trole").value,
           what_they_work_on: $("#twork").value,
+          link: $("#tlink").value,
+          search_web: $("#twebsearch").checked,
         }),
       });
       const reader = res.body.getReader();
@@ -447,6 +493,36 @@
     }
   }
 
+  async function buildProfile() {
+    const btn = $("#buildBtn"), msg = $("#buildMsg");
+    btn.disabled = true;
+    msg.className = "buildmsg";
+    msg.textContent = "distilling…";
+    try {
+      const res = await (await fetch("/api/build-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ material: $("#meMaterial").value, goal: $("#meGoal").value }),
+      })).json();
+      if (res.ok) {
+        await loadProfiles();
+        $("#profile").value = res.id;
+        showActingAs();
+        msg.className = "buildmsg ok";
+        msg.textContent = `Profile built for ${res.name} — ${res.proof_points} proof point${res.proof_points === 1 ? "" : "s"}. Selected.`;
+      } else {
+        msg.className = "buildmsg bad";
+        msg.textContent = res.message;
+      }
+    } catch {
+      msg.className = "buildmsg bad";
+      msg.textContent = "Couldn't build the profile — try again.";
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  $("#buildBtn").addEventListener("click", buildProfile);
   $("#runBtn").addEventListener("click", run);
   document.addEventListener("keydown", e => {
     if ((e.metaKey || e.ctrlKey) && e.key === "Enter") run();
