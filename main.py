@@ -27,9 +27,11 @@ app = FastAPI(title="The Relevance Gate")
 
 # ------------------------------------------------- ClickHouse decision log
 
-CH_HOST = os.getenv("CLICKHOUSE_HOST", "").strip()
+CH_HOST = os.getenv("CLICKHOUSE_HOST", "").strip().removeprefix("https://").rstrip("/")
 CH_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "")
-CH_URL = f"https://{CH_HOST}:8443/" if CH_HOST else ""
+if CH_HOST and ":" not in CH_HOST:
+    CH_HOST += ":8443"
+CH_URL = f"https://{CH_HOST}/" if CH_HOST else ""
 
 CH_TABLE_DDL = """
 CREATE TABLE IF NOT EXISTS relevance_verdicts (

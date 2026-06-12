@@ -17,14 +17,18 @@ load_dotenv()
 
 client = AsyncAnthropic(timeout=25.0)
 
-MODEL_FAST = "claude-haiku-4-5"     # research: cheap + fast, it structures typed context
-MODEL_SMART = "claude-sonnet-4-6"   # intersect / verify / write
+# Latency budget (§2: full run < 12s) drives model choice: Haiku for the
+# structured-judgment stages — measured ~2-4s each vs Sonnet's 8-13s —
+# Sonnet only for the message a human reads aloud on stage.
+MODEL_FAST = "claude-haiku-4-5"     # research / intersect / verify
+MODEL_WRITER = "claude-sonnet-4-6"  # write: quality of the read-aloud message
 
 DEMO_MODE = os.getenv("DEMO_MODE", "1") == "1"
 TEMPERATURE = 0.2 if DEMO_MODE else 0.7
 
-# Per-stage wall-clock budgets (seconds). Total run must stay under ~12s.
-STAGE_TIMEOUT = {"research": 6.0, "intersect": 8.0, "verify": 8.0, "write": 8.0}
+# Per-stage wall-clock budgets (seconds). Typical total ~10-12s.
+STAGE_TIMEOUT = {"research": 6.0, "intersect": 10.0, "verify": 8.0, "write": 9.0}
+STAGE_MAX_TOKENS = {"research": 700, "intersect": 700, "verify": 450, "write": 300}
 
 
 # ---------------------------------------------------------------- schemas
@@ -92,13 +96,14 @@ MESSAGE_SCHEMA = {
 }
 
 
-async def _call(model: str, system: str, user: str, schema: dict, timeout: float) -> dict:
+async def _call(model: str, system: str, user: str, schema: dict, timeout: float,
+                max_tokens: int = 700) -> dict:
     """One schema-enforced agent call. Raises on timeout/API error — callers
     decide the safe direction."""
     response = await asyncio.wait_for(
         client.messages.create(
             model=model,
-            max_tokens=1024,
+            max_tokens=max_tokens,
             temperature=TEMPERATURE,
             system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": user}],
@@ -127,7 +132,8 @@ async def research_agent(profile: dict, target: dict) -> dict:
             "List unknowns you could not establish."
         ),
     })
-    return await _call(MODEL_FAST, system, user, DOSSIER_SCHEMA, STAGE_TIMEOUT["research"])
+    return await _call(MODEL_FAST, system, user, DOSSIER_SCHEMA,
+                       STAGE_TIMEOUT["research"], STAGE_MAX_TOKENS["research"])
 
 
 async def intersect_agent(profile: dict, dossier: dict, target: dict) -> dict:
@@ -140,7 +146,8 @@ async def intersect_agent(profile: dict, dossier: dict, target: dict) -> dict:
         "directly onto what the target builds/hires for. 'medium' = a real, "
         "specific adjacency. 'weak' = only generic thematic similarity. "
         "'none' = no genuine connection. If strength is weak or none, say so "
-        "honestly in primary_overlap and do not inflate it."
+        "honestly in primary_overlap and do not inflate it.\n"
+        "Be brief: every field one sentence; at most 2 secondary overlaps."
     )
     user = json.dumps({
         "candidate": profile["candidate"],
@@ -149,7 +156,8 @@ async def intersect_agent(profile: dict, dossier: dict, target: dict) -> dict:
         "target_dossier": dossier,
         "target": target,
     })
-    return await _call(MODEL_SMART, system, user, INTERSECT_SCHEMA, STAGE_TIMEOUT["intersect"])
+    return await _call(MODEL_FAST, system, user, INTERSECT_SCHEMA,
+                       STAGE_TIMEOUT["intersect"], STAGE_MAX_TOKENS["intersect"])
 
 
 async def verify_agent(profile: dict, intersection: dict, target: dict) -> dict:
@@ -170,7 +178,8 @@ async def verify_agent(profile: dict, intersection: dict, target: dict) -> dict:
         "intersection": intersection,
         "target": target,
     })
-    return await _call(MODEL_SMART, system, user, VERDICT_SCHEMA, STAGE_TIMEOUT["verify"])
+    return await _call(MODEL_FAST, system, user, VERDICT_SCHEMA,
+                       STAGE_TIMEOUT["verify"], STAGE_MAX_TOKENS["verify"])
 
 
 async def write_agent(profile: dict, intersection: dict, target: dict) -> dict:
@@ -192,7 +201,19 @@ async def write_agent(profile: dict, intersection: dict, target: dict) -> dict:
         "verified_overlap": intersection,
         "target": target,
     })
-    return await _call(MODEL_SMART, system, user, MESSAGE_SCHEMA, STAGE_TIMEOUT["write"])
+    msg = await _call(MODEL_WRITER, system, user, MESSAGE_SCHEMA,
+                      STAGE_TIMEOUT["write"], STAGE_MAX_TOKENS["write"])
+    # Guard against double-encoded output: a JSON object inside the message
+    # string is still schema-valid, so unwrap it if a model produces one.
+    inner = msg.get("message", "").strip()
+    if inner.startswith("{"):
+        try:
+            parsed = json.loads(inner)
+            if isinstance(parsed, dict) and isinstance(parsed.get("message"), str):
+                msg["message"] = parsed["message"]
+        except ValueError:
+            pass
+    return msg
 
 
 # ------------------------------------------------- DEMO_MODE seeded fallback
