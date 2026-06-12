@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Relevance Gate — found many, contact few, all true</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f5f2ea;
+    --paper-deep: #ece8dc;
+    --ink: #181511;
+    --ink-soft: #5b554a;
+    --rule: #d8d2c2;
+    --clear: #2e6b4e;
+    --clear-wash: #e7efe7;
+    --hold: #a03a26;
+    --hold-wash: #f4e7e1;
+    --live: #8a6d2f;
+    --serif: "Fraunces", Georgia, serif;
+    --mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--serif);
+    font-size: 17px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  /* faint paper grain */
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; opacity: .35; z-index: 0;
+    background-image: radial-gradient(rgba(24,21,17,.04) 1px, transparent 1px);
+    background-size: 5px 5px;
+  }
+  .sheet { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; padding: 0 32px 96px; }
+
+  /* ------------------------------------------------ masthead */
+  header {
+    display: flex; align-items: baseline; justify-content: space-between;
+    padding: 28px 0 18px; border-bottom: 2px solid var(--ink); gap: 16px; flex-wrap: wrap;
+  }
+  .wordmark { font-family: var(--mono); font-size: 13px; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; }
+  .wordmark b { background: var(--ink); color: var(--paper); padding: 2px 7px; margin-right: 8px; font-weight: 500; }
+  .motto { font-style: italic; font-size: 15px; color: var(--ink-soft); }
+
+  .lede { padding: 40px 0 36px; border-bottom: 1px solid var(--rule); }
+  .lede h1 {
+    font-weight: 380; font-size: clamp(30px, 4.4vw, 50px);
+    line-height: 1.12; letter-spacing: -.01em; max-width: 21ch;
+    font-variation-settings: "opsz" 144;
+  }
+  .lede h1 em { font-style: italic; }
+  .lede p { margin-top: 14px; max-width: 58ch; color: var(--ink-soft); font-size: 16px; }
+
+  /* ------------------------------------------------ layout */
+  .desk { display: grid; grid-template-columns: 384px 1fr; gap: 56px; padding-top: 40px; align-items: start; }
+  @media (max-width: 900px) { .desk { grid-template-columns: 1fr; gap: 40px; } }
+
+  /* ------------------------------------------------ intake (left) */
+  .intake { position: sticky; top: 24px; }
+  @media (max-width: 900px) { .intake { position: static; } }
+  .field-label {
+    font-family: var(--mono); font-size: 11px; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--ink-soft); display: block; margin: 26px 0 8px;
+  }
+  .field-label:first-child { margin-top: 0; }
+  .field-label .hint { text-transform: none; letter-spacing: 0; font-style: italic; font-family: var(--serif); font-size: 13px; margin-left: 6px; }
+  select, input[type=text], textarea {
+    width: 100%; border: 0; border-bottom: 1.5px solid var(--ink);
+    background: transparent; font-family: var(--serif); font-size: 19px;
+    color: var(--ink); padding: 6px 2px 8px; border-radius: 0; outline: none;
+    transition: border-color .2s;
+  }
+  textarea { resize: vertical; min-height: 96px; line-height: 1.5; }
+  select:focus, input:focus, textarea:focus { border-bottom-color: var(--clear); }
+  ::placeholder { color: #b3ac9c; font-style: italic; }
+  select { appearance: none; cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%23181511' stroke-width='1.4' fill='none'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 4px center; }
+  .acting-as { margin-top: 10px; font-size: 13.5px; font-style: italic; color: var(--ink-soft); min-height: 20px; }
+
+  .runbar { margin-top: 34px; display: flex; align-items: center; gap: 16px; }
+  button.run {
+    font-family: var(--mono); font-size: 12.5px; font-weight: 500; letter-spacing: .18em;
+    text-transform: uppercase; color: var(--paper); background: var(--ink);
+    border: 1.5px solid var(--ink); padding: 13px 26px; cursor: pointer;
+    transition: background .15s, color .15s, transform .06s;
+  }
+  button.run:hover:not(:disabled) { background: transparent; color: var(--ink); }
+  button.run:active:not(:disabled) { transform: translateY(1px); }
+  button.run:disabled { opacity: .45; cursor: default; }
+  .elapsed { font-family: var(--mono); font-size: 12px; color: var(--ink-soft); }
+
+  .creed { margin-top: 44px; padding-top: 20px; border-top: 1px solid var(--rule);
+    font-size: 13.5px; color: var(--ink-soft); line-height: 1.65; }
+  .creed b { color: var(--ink); font-weight: 600; }
+
+  /* ------------------------------------------------ ledger (right) */
+  .ledger { min-height: 420px; }
+  .ledger-idle { padding-top: 8px; color: var(--ink-soft); }
+  .ledger-idle .big-q {
+    font-size: clamp(40px, 6vw, 72px); font-weight: 300; font-style: italic;
+    line-height: 1.05; color: var(--paper-deep);
+    -webkit-text-stroke: 1px var(--rule); user-select: none;
+  }
+  .ledger-idle p { margin-top: 18px; max-width: 44ch; font-size: 15.5px; }
+
+  .stage { border-top: 1px solid var(--rule); padding: 20px 0 26px;
+    opacity: .32; transition: opacity .4s; }
+  .stage.on { opacity: 1; }
+  .stage-head { display: flex; align-items: baseline; gap: 14px; }
+  .stage-no { font-family: var(--mono); font-size: 11px; color: var(--ink-soft); }
+  .stage-name { font-family: var(--mono); font-size: 12px; font-weight: 500;
+    letter-spacing: .2em; text-transform: uppercase; }
+  .stage-status { margin-left: auto; font-style: italic; font-size: 14px; color: var(--ink-soft); }
+  .stage-status .pulse { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+    background: var(--live); margin-right: 7px; animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: .25 } 50% { opacity: 1 } }
+
+  .stage-body { margin-top: 16px; }
+  .reveal { animation: reveal .45s ease both; }
+  @keyframes reveal { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+
+  /* research facts */
+  .fact { display: flex; gap: 12px; padding: 7px 0; font-size: 15.5px; align-items: baseline; }
+  .fact + .fact { border-top: 1px dotted var(--rule); }
+  .fact .src { font-family: var(--mono); font-size: 10.5px; color: var(--ink-soft);
+    white-space: nowrap; padding-top: 3px; }
+  .unknowns { margin-top: 10px; font-size: 13px; font-style: italic; color: var(--ink-soft); }
+
+  /* intersection */
+  .overlap-point { font-size: clamp(22px, 2.6vw, 30px); font-weight: 420; line-height: 1.2;
+    font-variation-settings: "opsz" 100; }
+  .overlap-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 18px; }
+  @media (max-width: 640px) { .overlap-cols { grid-template-columns: 1fr; } }
+  .overlap-col h4 { font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 6px; }
+  .overlap-col p { font-size: 15px; }
+  .why { margin-top: 16px; font-style: italic; font-size: 15.5px; border-left: 2px solid var(--ink); padding-left: 14px; }
+  .strength-tag { display: inline-block; font-family: var(--mono); font-size: 10.5px;
+    letter-spacing: .14em; text-transform: uppercase; border: 1px solid currentColor;
+    padding: 3px 9px; margin-bottom: 14px; }
+  .strength-strong { color: var(--clear); } .strength-medium { color: var(--live); }
+  .strength-weak, .strength-none { color: var(--hold); }
+
+  /* the gate */
+  .verdict-row { display: flex; gap: 28px; align-items: flex-start; flex-wrap: wrap; }
+  .stamp {
+    font-family: var(--mono); font-weight: 500; letter-spacing: .26em; text-transform: uppercase;
+    border: 3px double currentColor; padding: 14px 22px 12px; font-size: 19px;
+    transform: rotate(-3.5deg); flex-shrink: 0; user-select: none;
+    animation: stamp .3s cubic-bezier(.2, 2.4, .4, 1) both;
+  }
+  @keyframes stamp { from { opacity: 0; transform: rotate(-3.5deg) scale(1.7); } to { opacity: 1; transform: rotate(-3.5deg) scale(1); } }
+  .stamp.cleared { color: var(--clear); background: var(--clear-wash); }
+  .stamp.held { color: var(--hold); background: var(--hold-wash); }
+  .stamp .score { display: block; font-size: 10.5px; letter-spacing: .14em; margin-top: 5px; opacity: .8; }
+  .verdict-line { font-size: clamp(18px, 2.1vw, 23px); font-style: italic; font-weight: 360;
+    line-height: 1.35; flex: 1; min-width: 240px; }
+  .evidence { margin-top: 18px; }
+  .evidence h4 { font-family: var(--mono); font-size: 10.5px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--ink-soft); margin-bottom: 8px; }
+  .evidence li { list-style: none; font-size: 15px; padding: 6px 0 6px 18px; position: relative; }
+  .evidence li::before { content: "—"; position: absolute; left: 0; color: var(--ink-soft); }
+
+  /* the message */
+  .note {
+    background: #fffdf7; border: 1px solid var(--rule); padding: 30px 34px;
+    box-shadow: 3px 4px 0 rgba(24,21,17,.07); max-width: 60ch;
+  }
+  .note .body { font-size: 17.5px; line-height: 1.6; white-space: pre-wrap; }
+  .note .meta { margin-top: 20px; padding-top: 14px; border-top: 1px dotted var(--rule);
+    font-family: var(--mono); font-size: 11px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--ink-soft); display: flex; gap: 18px; flex-wrap: wrap; }
+
+  /* the refusal — the moment */
+  .nothing { padding: 10px 0 4px; }
+  .nothing .headline { font-size: clamp(30px, 4vw, 46px); font-weight: 330; line-height: 1.1;
+    font-variation-settings: "opsz" 144; }
+  .nothing .headline em { font-style: italic; color: var(--hold); }
+  .nothing p { margin-top: 14px; max-width: 52ch; color: var(--ink-soft); font-size: 15.5px; }
+
+  .softfail { font-style: italic; color: var(--hold); padding: 18px 0; }
+
+  footer { margin-top: 80px; padding-top: 18px; border-top: 1px solid var(--rule);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+    font-family: var(--mono); font-size: 11px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <header>
+    <div class="wordmark"><b>¶</b>The Relevance Gate</div>
+    <div class="motto">Found many. Contact few. All of them true.</div>
+  </header>
+
+  <section class="lede">
+    <h1>An outreach agent that <em>refuses to send</em> unless it finds a real reason.</h1>
+    <p>Four isolated agents research a person, compute the genuine overlap with what you offer,
+       and put it before an independent gate. If the reason isn't real and evidenced, nothing is written.
+       The headline feature is the message it won't send.</p>
+  </section>
+
+  <div class="desk">
+
+    <!-- ------------------------------------------------ intake -->
+    <aside class="intake">
+      <label class="field-label" for="profile">Context <span class="hint">— who is reaching out</span></label>
+      <select id="profile"></select>
+      <div class="acting-as" id="actingAs"></div>
+
+      <label class="field-label" for="tname">The person</label>
+      <input type="text" id="tname" placeholder="Gagan" autocomplete="off">
+
+      <label class="field-label" for="trole">Their role</label>
+      <input type="text" id="trole" placeholder="MTS at Anthropic" autocomplete="off">
+
+      <label class="field-label" for="twork">What they work on <span class="hint">— in their words</span></label>
+      <textarea id="twork" placeholder="“I work on agents.”"></textarea>
+
+      <div class="runbar">
+        <button class="run" id="runBtn">Run the gate</button>
+        <span class="elapsed" id="elapsed"></span>
+      </div>
+
+      <div class="creed">
+        The gate renders its verdict <b>before the writer exists</b> — the writer can't
+        talk it into sending. Every claim traces to a source. Swap the context above
+        and the same engine serves a different trade, with zero code change.
+      </div>
+    </aside>
+
+    <!-- ------------------------------------------------ ledger -->
+    <main class="ledger" id="ledger">
+      <div class="ledger-idle" id="idle">
+        <div class="big-q">Is there a real reason to write to this person?</div>
+        <p>Type what they said about their work — that's the evidence the crew grounds on.
+           Then watch it decide.</p>
+      </div>
+
+      <div id="stages" hidden>
+        <section class="stage" id="st-research">
+          <div class="stage-head"><span class="stage-no">01</span><span class="stage-name">Research</span><span class="stage-status"></span></div>
+          <div class="stage-body"></div>
+        </section>
+        <section class="stage" id="st-intersect">
+          <div class="stage-head"><span class="stage-no">02</span><span class="stage-name">Intersection</span><span class="stage-status"></span></div>
+          <div class="stage-body"></div>
+        </section>
+        <section class="stage" id="st-verify">
+          <div class="stage-head"><span class="stage-no">03</span><span class="stage-name">The Gate</span><span class="stage-status"></span></div>
+          <div class="stage-body"></div>
+        </section>
+        <section class="stage" id="st-write">
+          <div class="stage-head"><span class="stage-no">04</span><span class="stage-name">The Message</span><span class="stage-status"></span></div>
+          <div class="stage-body"></div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <footer>
+    <span>Claude-powered agent crew · the gate fails closed</span>
+    <span id="statline">Every verdict logged</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const $ = (s, el=document) => el.querySelector(s);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+  const RUNNING_COPY = {
+    research:  "reading what they said…",
+    intersect: "looking for the genuine overlap…",
+    verify:    "weighing the evidence…",
+    write:     "writing only what's true…",
+  };
+
+  let profiles = [];
+
+  async function loadProfiles() {
+    try {
+      profiles = await (await fetch("/api/profiles")).json();
+    } catch { profiles = []; }
+    const sel = $("#profile");
+    sel.innerHTML = profiles.map(p => `<option value="${esc(p.id)}">${esc(p.label)}</option>`).join("");
+    sel.onchange = showActingAs;
+    showActingAs();
+  }
+  function showActingAs() {
+    const p = profiles.find(x => x.id === $("#profile").value);
+    $("#actingAs").textContent = p ? `${p.candidate} — ${p.identity}.` : "";
+  }
+
+  function stageEl(stage) { return $("#st-" + stage); }
+  function setStatus(stage, html) { const el = stageEl(stage); if (el) $(".stage-status", el).innerHTML = html; }
+  function setBody(stage, html) {
+    const el = stageEl(stage); if (!el) return;
+    $(".stage-body", el).innerHTML = `<div class="reveal">${html}</div>`;
+  }
+  function resetLedger() {
+    $("#idle").hidden = true;
+    $("#stages").hidden = false;
+    for (const s of ["research","intersect","verify","write"]) {
+      const el = stageEl(s);
+      el.classList.remove("on");
+      $(".stage-status", el).innerHTML = "";
+      $(".stage-body", el).innerHTML = "";
+    }
+  }
+
+  function renderResearch(d) {
+    const facts = (d.facts || []).map(f =>
+      `<div class="fact"><span>${esc(f.fact)}</span><span class="src">${esc(f.source)}</span></div>`).join("");
+    const unk = (d.unknowns || []).length
+      ? `<div class="unknowns">Unknowns, stated honestly: ${esc(d.unknowns.join(" · "))}</div>` : "";
+    return facts + unk || "<div class='unknowns'>No facts could be established.</div>";
+  }
+
+  function renderIntersect(d) {
+    const po = d.primary_overlap || {};
+    const strength = d.overlap_strength || "none";
+    return `
+      <span class="strength-tag strength-${esc(strength)}">overlap: ${esc(strength)}</span>
+      <div class="overlap-point">${esc(po.point)}</div>
+      <div class="overlap-cols">
+        <div class="overlap-col"><h4>Their world</h4><p>${esc(po.target_evidence)}</p></div>
+        <div class="overlap-col"><h4>Your proof</h4><p>${esc(po.candidate_evidence)}</p></div>
+      </div>
+      <div class="why">${esc(po.why_it_matters)}</div>`;
+  }
+
+  function renderVerdict(d) {
+    const cleared = !!d.send;
+    const evid = (d.evidence || []).map(e => `<li>${esc(e)}</li>`).join("");
+    return `
+      <div class="verdict-row">
+        <div class="stamp ${cleared ? "cleared" : "held"}">${cleared ? "Cleared" : "Held"}
+          <span class="score">score ${esc(d.score)} / 100</span></div>
+        <div class="verdict-line">“${esc(d.verdict_line)}”</div>
+      </div>
+      ${evid ? `<div class="evidence"><h4>On the evidence</h4><ul>${evid}</ul></div>` : ""}`;
+  }
+
+  function renderMessage(d) {
+    return `
+      <div class="note">
+        <div class="body">${esc(d.message)}</div>
+        <div class="meta"><span>${esc(d.word_count)} words</span><span>one ask</span><span>every claim sourced</span></div>
+      </div>`;
+  }
+
+  function renderNothing(verdictLine) {
+    return `
+      <div class="nothing">
+        <div class="headline">No message. <em>On purpose.</em></div>
+        <p>${esc(verdictLine || "The gate found no real, evidence-backed reason to contact this person — so it sends nothing.")}
+           A message without a real reason is spam, and spam costs you the next hundred replies.</p>
+      </div>`;
+  }
+
+  let running = false;
+  async function run() {
+    if (running) return;
+    running = true;
+    const btn = $("#runBtn");
+    btn.disabled = true;
+    resetLedger();
+
+    const t0 = performance.now();
+    const timer = setInterval(() => {
+      $("#elapsed").textContent = ((performance.now() - t0) / 1000).toFixed(1) + "s";
+    }, 100);
+
+    let lastVerdictLine = "";
+    const handle = ev => {
+      const { stage, status, data } = ev;
+      if (stage === "error") {
+        setStatus("research", "");
+        setBody("research", `<div class="softfail">${esc(ev.message)}</div>`);
+        stageEl("research").classList.add("on");
+        return;
+      }
+      if (stage === "done") return;
+      const el = stageEl(stage); if (!el) return;
+      el.classList.add("on");
+      if (status === "running") {
+        setStatus(stage, `<span class="pulse"></span>${RUNNING_COPY[stage] || "working…"}`);
+        el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } else if (status === "done") {
+        setStatus(stage, "");
+        if (stage === "research")  setBody(stage, renderResearch(data));
+        if (stage === "intersect") setBody(stage, renderIntersect(data));
+        if (stage === "verify")    { lastVerdictLine = data.verdict_line; setBody(stage, renderVerdict(data)); }
+        if (stage === "write")     setBody(stage, renderMessage(data));
+        el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } else if (status === "skipped" && stage === "write") {
+        setStatus(stage, "");
+        setBody(stage, renderNothing(lastVerdictLine));
+        el.classList.add("on");
+        el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    };
+
+    try {
+      const res = await fetch("/api/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile_id: $("#profile").value,
+          name: $("#tname").value,
+          role: $("#trole").value,
+          what_they_work_on: $("#twork").value,
+        }),
+      });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf("\n\n")) >= 0) {
+          const chunk = buf.slice(0, i); buf = buf.slice(i + 2);
+          if (chunk.startsWith("data: ")) {
+            try { handle(JSON.parse(chunk.slice(6))); } catch {}
+          }
+        }
+      }
+    } catch {
+      handle({ stage: "error", status: "error", message: "Couldn't complete this run — try again." });
+    } finally {
+      clearInterval(timer);
+      btn.disabled = false;
+      running = false;
+    }
+  }
+
+  $("#runBtn").addEventListener("click", run);
+  document.addEventListener("keydown", e => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") run();
+  });
+  loadProfiles();
+})();
+</script>
+</body>
+</html>
